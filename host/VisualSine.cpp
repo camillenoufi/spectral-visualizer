@@ -1,10 +1,10 @@
 //-----------------------------------------------------------------------------
 // name: VisualSine.cpp
-// desc: hello sine wave, real-time
+// desc: real-time spectrum visualizer with mountain theme
 //
-// author: Ge Wang (ge@ccrma.stanford.edu)
-//   date: fall 2014
-//   uses: RtAudio by Gary Scavone
+// author: Camille Noufi (cnoufi@ccrma.stanford.edu)
+//   date: fall 2018
+//   uses: RtAudio by Gary Scavone and SndPeek by Ge Wang
 //-----------------------------------------------------------------------------
 #include "RtAudio/RtAudio.h"
 #include "chuck.h"
@@ -12,6 +12,9 @@
 #include <stdlib.h>
 #include <iostream>
 using namespace std;
+
+// FFT
+#include "chuck_fft.h"
 
 #ifdef __MACOSX_CORE__
 #include <GLUT/glut.h>
@@ -71,25 +74,25 @@ int callme( void * outputBuffer, void * inputBuffer, unsigned int numFrames,
     // cast!
     SAMPLE * input = (SAMPLE *)inputBuffer;
     SAMPLE * output = (SAMPLE *)outputBuffer;
-    
+
     // compute chuck!
     // (TODO: to fill in)
-    
+
     // fill
     for( int i = 0; i < numFrames; i++ )
     {
         // copy the input to visualize only the left-most channel
         g_buffer[i] = input[i*MY_CHANNELS];
-        
+
         // also copy in the output from chuck to our visualizer
         // (TODO: to fill in)
-        
+
         // mute output -- TODO will need to disable this once ChucK produces output, in order for you to hear it!
         for( int j = 0; j < MY_CHANNELS; j++ ) { output[i*MY_CHANNELS + j] = 0; }
     }
-    
-    
-    
+
+
+
     return 0;
 }
 
@@ -108,7 +111,7 @@ int main( int argc, char ** argv )
     unsigned int bufferBytes = 0;
     // frame size
     unsigned int bufferFrames = 1024;
-    
+
     // check for audio devices
     if( audio.getDeviceCount() < 1 )
     {
@@ -116,15 +119,15 @@ int main( int argc, char ** argv )
         cout << "no audio devices found!" << endl;
         exit( 1 );
     }
-    
+
     // initialize GLUT
     glutInit( &argc, argv );
     // init gfx
     initGfx();
-    
+
     // let RtAudio print messages to stderr.
     audio.showWarnings( true );
-    
+
     // set input and output parameters
     RtAudio::StreamParameters iParams, oParams;
     iParams.deviceId = audio.getDefaultInputDevice();
@@ -133,10 +136,10 @@ int main( int argc, char ** argv )
     oParams.deviceId = audio.getDefaultOutputDevice();
     oParams.nChannels = MY_CHANNELS;
     oParams.firstChannel = 0;
-    
+
     // create stream options
     RtAudio::StreamOptions options;
-    
+
     // go for it
     try {
         // open a stream
@@ -148,31 +151,31 @@ int main( int argc, char ** argv )
         cout << e.getMessage() << endl;
         exit( 1 );
     }
-    
+
     // compute
     bufferBytes = bufferFrames * MY_CHANNELS * sizeof(SAMPLE);
     // allocate global buffer
     g_bufferSize = bufferFrames;
     g_buffer = new SAMPLE[g_bufferSize];
     memset( g_buffer, 0, sizeof(SAMPLE)*g_bufferSize );
-    
+
     // set up chuck
     the_chuck = new ChucK();
     // TODO: set sample rate and number of in/out channels on our chuck
-    
+
     // TODO: initialize our chuck
-    
+
     // TODO: run a chuck program
-    
-    
+
+
     // go for it
     try {
         // start stream
         audio.startStream();
-        
+
         // let GLUT handle the current thread from here
         glutMainLoop();
-        
+
         // stop the stream.
         audio.stopStream();
     }
@@ -182,12 +185,12 @@ int main( int argc, char ** argv )
         cout << e.getMessage() << endl;
         goto cleanup;
     }
-    
+
 cleanup:
     // close if open
     if( audio.isStreamOpen() )
         audio.closeStream();
-    
+
     // done
     return 0;
 }
@@ -209,7 +212,7 @@ void initGfx()
     glutInitWindowPosition( 100, 100 );
     // create the window
     glutCreateWindow( "VisualSine" );
-    
+
     // set the idle function - called when idle
     glutIdleFunc( idleFunc );
     // set the display function - called when redrawing
@@ -220,7 +223,7 @@ void initGfx()
     glutKeyboardFunc( keyboardFunc );
     // set the mouse function - called on mouse stuff
     glutMouseFunc( mouseFunc );
-    
+
     // set clear color
     glClearColor( 0, 0, 0, 1 );
     // enable color material
@@ -271,12 +274,12 @@ void keyboardFunc( unsigned char key, int x, int y )
         case 'q':
             exit(1);
             break;
-            
+
         case 'd':
             g_draw_dB = !g_draw_dB;
             break;
     }
-    
+
     glutPostRedisplay( );
 }
 
@@ -312,7 +315,7 @@ void mouseFunc( int button, int state, int x, int y )
     else
     {
     }
-    
+
     glutPostRedisplay( );
 }
 
@@ -339,23 +342,23 @@ void displayFunc( )
 {
     // local state
     static GLfloat zrot = 0.0f, c = 0.0f;
-    
+
     // clear the color and depth buffers
     glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-    
+
     // line width
     glLineWidth( 1.0 );
     // define a starting point
     GLfloat x = -5;
     // increment
     GLfloat xinc = ::fabs(x*2 / g_bufferSize);
-    
+
     // color
     glColor3f( .5, 1, .5 );
-    
+
     // start primitive
     glBegin( GL_LINE_STRIP );
- 
+
     // loop over buffer
     for( int i = 0; i < g_bufferSize; i++ )
     {
@@ -364,7 +367,7 @@ void displayFunc( )
         // increment x
         x += xinc;
     }
-    
+
     // end primitive
     glEnd();
 
