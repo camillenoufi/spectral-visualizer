@@ -161,7 +161,10 @@ int main( int argc, char ** argv )
 
     // set up chuck
     the_chuck = new ChucK();
-    // TODO: set sample rate and number of in/out channels on our chuck
+    // TODO: set sample rate and number of in/out channels on our chuck - THIS IS WRONG!!!
+    the_chuck.setParam("SAMPLE_RATE", MY_SRATE);
+    the_chuck.setParam("INPUT_CHANNELS", MY_CHANNELS);
+    the_chuck.setParam("OUTPUT_CHANNELS", MY_CHANNELS);
 
     // TODO: initialize our chuck
 
