@@ -15,6 +15,7 @@ using namespace std;
 
 // FFT
 #include "chuck_fft.h"
+#include "MFCC.h"
 
 #ifdef __MACOSX_CORE__
 #include <GLUT/glut.h>
@@ -162,9 +163,9 @@ int main( int argc, char ** argv )
     // set up chuck
     the_chuck = new ChucK();
     // TODO: set sample rate and number of in/out channels on our chuck - THIS IS WRONG!!!
-    the_chuck.setParam("SAMPLE_RATE", MY_SRATE);
-    the_chuck.setParam("INPUT_CHANNELS", MY_CHANNELS);
-    the_chuck.setParam("OUTPUT_CHANNELS", MY_CHANNELS);
+    //the_chuck.setParam("SAMPLE_RATE", MY_SRATE);
+    //the_chuck.setParam("INPUT_CHANNELS", MY_CHANNELS);
+    //the_chuck.setParam("OUTPUT_CHANNELS", MY_CHANNELS);
 
     // TODO: initialize our chuck
 
@@ -357,7 +358,7 @@ void displayFunc( )
     GLfloat xinc = ::fabs(x*2 / g_bufferSize);
 
     // color
-    glColor3f( .5, 1, .5 );
+    glColor3f( .5, 0, .5 );
 
     // start primitive
     glBegin( GL_LINE_STRIP );
@@ -366,7 +367,7 @@ void displayFunc( )
     for( int i = 0; i < g_bufferSize; i++ )
     {
         // plot
-        glVertex2f( x, 3*g_buffer[i] );
+        glVertex2f( x, 20*g_buffer[i] ); //number scales amplitude
         // increment x
         x += xinc;
     }
