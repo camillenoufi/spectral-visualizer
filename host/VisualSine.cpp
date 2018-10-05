@@ -15,7 +15,17 @@ using namespace std;
 
 // FFT
 #include "chuck_fft.h"
+
+//Marsyas
+/*
+#include "Centroid.h"
+#include "DownSampler.h"
+#include "Flux.h"
+#include "LPC.h"
 #include "MFCC.h"
+#include "RMS.h"
+#include "Rolloff.h"
+*/
 
 #ifdef __MACOSX_CORE__
 #include <GLUT/glut.h>
@@ -50,6 +60,12 @@ void mouseFunc( int button, int state, int x, int y );
 #define MY_CHANNELS 2
 // for convenience
 #define MY_PIE 3.14159265358979
+// Audio buffer size
+#define SND_BUFFER_SIZE 1024
+// FFT size
+#define SND_FFT_SIZE    ( SND_BUFFER_SIZE * 2 )
+// DSP manipulation window size
+#define SND_MARSYAS_SIZE    ( 512 )
 
 // width and height
 long g_width = 1024;
@@ -62,7 +78,17 @@ long g_bufferSize;
 bool g_draw_dB = false;
 ChucK * the_chuck = NULL;
 
+// gain
+GLfloat g_gain = 1.0f;
+GLfloat g_time_scale = 1.0f;
+GLfloat g_freq_scale = 1.0f;
 
+// how much to see
+GLint g_time_view = 1;
+GLint g_freq_view = 2;
+
+// global audio buffer
+SAMPLE g_fft_buffer[SND_FFT_SIZE];
 
 
 //-----------------------------------------------------------------------------
@@ -111,7 +137,7 @@ int main( int argc, char ** argv )
     // variables
     unsigned int bufferBytes = 0;
     // frame size
-    unsigned int bufferFrames = 1024;
+    unsigned int bufferFrames = SND_BUFFER_SIZE;
 
     // check for audio devices
     if( audio.getDeviceCount() < 1 )
@@ -163,9 +189,9 @@ int main( int argc, char ** argv )
     // set up chuck
     the_chuck = new ChucK();
     // TODO: set sample rate and number of in/out channels on our chuck - THIS IS WRONG!!!
-    //the_chuck.setParam("SAMPLE_RATE", MY_SRATE);
-    //the_chuck.setParam("INPUT_CHANNELS", MY_CHANNELS);
-    //the_chuck.setParam("OUTPUT_CHANNELS", MY_CHANNELS);
+    the_chuck->setParam("SAMPLE_RATE", MY_SRATE);
+    the_chuck->setParam("INPUT_CHANNELS", MY_CHANNELS);
+    the_chuck->setParam("OUTPUT_CHANNELS", MY_CHANNELS);
 
     // TODO: initialize our chuck
 
@@ -203,8 +229,8 @@ cleanup:
 
 
 //-----------------------------------------------------------------------------
-// Name: reshapeFunc( )
-// Desc: called when window size changes
+// Name: initGfx( )
+// Desc: sets initial OpenGL states and initializes any application data
 //-----------------------------------------------------------------------------
 void initGfx()
 {
@@ -347,30 +373,73 @@ void displayFunc( )
     // local state
     static GLfloat zrot = 0.0f, c = 0.0f;
 
+    // local variables
+    SAMPLE * buffer = g_fft_buffer; //, * ptr = in.getData();
+    GLfloat ytemp, fval;
+    GLint i;
+
     // clear the color and depth buffers
     glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
     // line width
     glLineWidth( 1.0 );
     // define a starting point
-    GLfloat x = -5;
+    //GLfloat x = -5;
+
+    // FROM SNDPEEK: soon to be used drawing offsets
+    GLfloat x = -1.8f, y = 5.7f; //inc = 3.6f / g_buffer_size,
+
     // increment
     GLfloat xinc = ::fabs(x*2 / g_bufferSize);
 
+    glPushMatrix();
     // color
     glColor3f( .5, 0, .5 );
 
     // start primitive
     glBegin( GL_LINE_STRIP );
 
+    // FROM SNDPEEK: draw the time domain waveform
+        // save the current matrix state
+    glPushMatrix();
+    // color waveform
+    glColor3f( 0.4f, 0.4f, 1.0f );
+    // translate the waveform
+    glTranslatef( x, y, 0.0f );
+    // scale visually
+    glScalef( xinc * g_time_view , g_gain * g_time_scale * 2.0, 1.0 );
+    // set vertex normals (for somewhat controlled lighting)
+    glNormal3f( 0.0f, 0.0f, 1.0f );
+    // draw waveform
+    glBegin( GL_LINE_STRIP );
+
+/*
+    {
+        GLint ii = ( g_buffer_size - (g_buffer_size/g_time_view) ) / 2;
+        GLfloat xcoord = 0.0f;
+        // loop through samples
+        for( int i = ii; i < ii + g_buffer_size / g_time_view; i++ )
+        {
+            glVertex2f( xcoord++ , buffer[i] );
+        }
+        glEnd();
+    }
+*/
     // loop over buffer
     for( int i = 0; i < g_bufferSize; i++ )
     {
         // plot
-        glVertex2f( x, 20*g_buffer[i] ); //number scales amplitude
+        if (abs(g_buffer[i])>=0.8f) {
+            fprintf(stderr, "%f\n", g_buffer[i]);
+            glColor3f( 1.0f, 1.0f, 0.0f );
+            glBegin( GL_LINE_STRIP );
+        }
+        glVertex2f( x, 3*g_buffer[i] ); //number scales amplitude
         // increment x
         x += xinc;
     }
+
+    glPopMatrix();
 
     // end primitive
     glEnd();
