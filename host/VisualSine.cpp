@@ -371,81 +371,53 @@ void idleFunc( )
 void displayFunc( )
 {
     // local state
-    static GLfloat zrot = 0.0f, c = 0.0f;
+        static GLfloat zrot = 0.0f, c = 0.0f;
 
-    // local variables
-    SAMPLE * buffer = g_fft_buffer; //, * ptr = in.getData();
-    GLfloat ytemp, fval;
-    GLint i;
+        // clear the color and depth buffers
+        glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
-    // clear the color and depth buffers
-    glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
-    // line width
-    glLineWidth( 1.0 );
-    // define a starting point
-    //GLfloat x = -5;
 
-    // FROM SNDPEEK: soon to be used drawing offsets
-    GLfloat x = -1.8f, y = 5.7f; //inc = 3.6f / g_buffer_size,
+        // line width
+        glLineWidth( 0.5 );
+        // define a starting point
+        GLfloat x = -5;
+        // increment
+        GLfloat xinc = ::fabs(x*2 / g_bufferSize);
 
-    // increment
-    GLfloat xinc = ::fabs(x*2 / g_bufferSize);
+        // color
+        glColor3f( 1.0, 1.0, 1.0 );
 
-    glPushMatrix();
-    // color
-    glColor3f( .5, 0, .5 );
+        // start primitive
+        glBegin( GL_LINE_STRIP );
 
-    // start primitive
-    glBegin( GL_LINE_STRIP );
-
-    // FROM SNDPEEK: draw the time domain waveform
-        // save the current matrix state
-    glPushMatrix();
-    // color waveform
-    glColor3f( 0.4f, 0.4f, 1.0f );
-    // translate the waveform
-    glTranslatef( x, y, 0.0f );
-    // scale visually
-    glScalef( xinc * g_time_view , g_gain * g_time_scale * 2.0, 1.0 );
-    // set vertex normals (for somewhat controlled lighting)
-    glNormal3f( 0.0f, 0.0f, 1.0f );
-    // draw waveform
-    glBegin( GL_LINE_STRIP );
-
-/*
-    {
-        GLint ii = ( g_buffer_size - (g_buffer_size/g_time_view) ) / 2;
-        GLfloat xcoord = 0.0f;
-        // loop through samples
-        for( int i = ii; i < ii + g_buffer_size / g_time_view; i++ )
+        // loop over buffer
+        for( int i = 0; i < g_bufferSize; i++ )
         {
-            glVertex2f( xcoord++ , buffer[i] );
+            if (::fabs(g_buffer[i]>=0.8)) {
+                glColor3f(1.0,1.0,0);
+                //do i need to do this again??
+                glBegin( GL_LINE_STRIP );
+                //CHANGE BACKGROUND COLOR TO WHITE
+            }
+
+            // plot
+            glVertex2f( x, 1*g_buffer[i] );
+            // increment x
+            x += xinc;
         }
+
+        // take forward FFT; result in buffer as FFT_SIZE/2 complex values
+        rfft( (float *)buffer, g_fft_size/2, FFT_FORWARD );
+        // cast to complex
+        complex * cbuf = (complex *)buffer;
+
+        // end primitive
         glEnd();
-    }
-*/
-    // loop over buffer
-    for( int i = 0; i < g_bufferSize; i++ )
-    {
-        // plot
-        if (abs(g_buffer[i])>=0.8f) {
-            fprintf(stderr, "%f\n", g_buffer[i]);
-            glColor3f( 1.0f, 1.0f, 0.0f );
-            glBegin( GL_LINE_STRIP );
-        }
-        glVertex2f( x, 3*g_buffer[i] ); //number scales amplitude
-        // increment x
-        x += xinc;
-    }
 
-    glPopMatrix();
+        // flush!
+        glFlush( );
+        // swap the double buffer
+        glutSwapBuffers( );
 
-    // end primitive
-    glEnd();
-
-    // flush!
-    glFlush( );
-    // swap the double buffer
-    glutSwapBuffers( );
 }
