@@ -89,6 +89,14 @@ GLint g_freq_view = 2;
 
 // global audio buffer
 SAMPLE g_fft_buffer[SND_FFT_SIZE];
+GLint g_fft_size = SND_FFT_SIZE;
+GLfloat g_window[SND_BUFFER_SIZE]; // DFT transform window
+GLfloat g_log_positions[SND_FFT_SIZE/2]; // precompute positions for log spacing
+SAMPLE g_audio_buffer[SND_BUFFER_SIZE]; // latest mono buffer (possibly preview)
+
+// real-time audio
+//std::mutex g_mutex;
+
 
 
 //-----------------------------------------------------------------------------
@@ -376,44 +384,93 @@ void displayFunc( )
         // clear the color and depth buffers
         glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
+        // save current matrix state
+//        glPushMatrix( );
 
+/******** TIME DOMAIN DISPLAY *******/
+//            glPushMatrix( );
+                // line width
 
-        // line width
-        glLineWidth( 0.5 );
-        // define a starting point
-        GLfloat x = -5;
-        // increment
-        GLfloat xinc = ::fabs(x*2 / g_bufferSize);
+/******* DRAW STATIC MOUNTAINS *****************/
+                glPushMatrix();
+                    glLineWidth( 2.5 );
+                    glColor3f( 18/255 , 95/255, 83/255); //aged blue green
+                    glBegin(GL_LINE_STRIP);
+                    {
+                        glVertex2f( -5, -5);
+                        glVertex2f( 2, 4);
+                    }
+                    glEnd();
+                glPop();
 
-        // color
-        glColor3f( 1.0, 1.0, 1.0 );
+/****** VARIABLES for time/fft signals  ***/
+                // apply the transform window
+//                apply_window( (float*)g_buffer, g_window, g_bufferSize );
 
-        // start primitive
-        glBegin( GL_LINE_STRIP );
+                // define a starting point
+                GLfloat x = -5;
+                // increment
+                GLfloat xinc = ::fabs(x*2 / g_bufferSize);
+                // time domain line width
+                glLineWidth( 0.5 );
+                // color
+                glColor3f( 1.0, 1.0, 1.0 );
 
-        // loop over buffer
-        for( int i = 0; i < g_bufferSize; i++ )
-        {
-            if (::fabs(g_buffer[i]>=0.8)) {
-                glColor3f(1.0,1.0,0);
-                //do i need to do this again??
+                // start primitive
+                glBegin( GL_LINES );
+                    // loop over buffer
+                    for( int i = 0; i < g_bufferSize; i++ )
+                    {
+                        if (::fabs(g_buffer[i]>=1.5)) {
+                            glColor3f(1.0,1.0,0);
+                            //do i need to do this again??
+                            glBegin( GL_LINE_STRIP );
+                            glVertex2f( x, 3*g_buffer[i]-2);
+                            //CHANGE BACKGROUND COLOR TO WHITE
+                        }
+                        else {
+                            glVertex2f( x, 0.7*g_buffer[i]-2);
+                        }
+
+                        // plot
+                        // increment x
+                        x += xinc;
+                    }
+                    // end primitive
+                glEnd();
+
+                SAMPLE * buffer[g_bufferSize];
+                // reset starting point
+                x = -5;
+                // get the latest (possibly preview) window
+                memset( buffer, 0, SND_FFT_SIZE * sizeof(SAMPLE) );
+
+                // copy currently playing audio into buffer
+                memcpy( buffer, g_buffer, g_bufferSize * sizeof(SAMPLE) );
+
+                // take forward FFT; result in buffer as FFT_SIZE/2 complex values
+                rfft( (float *)buffer, g_fft_size/2, FFT_FORWARD );
+                // cast to complex
+                complex * cbuf = (complex *)buffer;
+
+                // time domain line width
+                glLineWidth( 1.0 );
+                // color
+                glColor3f( 0.0, 1.0, 0.0 );
                 glBegin( GL_LINE_STRIP );
-                //CHANGE BACKGROUND COLOR TO WHITE
-            }
+                    // loop over buffer
+                    for( int i = 0; i < g_bufferSize/2; i++ )
+                    {
+                        glVertex2f( x, 10*cmp_abs(cbuf[i]) + 2 );
+                        x += 2*xinc;
+                    }
+                    // end primitive
+                glEnd();
+//            glPopMatrix();
+/*********   FFT SPECTRUM PART  *********/
 
-            // plot
-            glVertex2f( x, 1*g_buffer[i] );
-            // increment x
-            x += xinc;
-        }
 
-        // take forward FFT; result in buffer as FFT_SIZE/2 complex values
-        rfft( (float *)buffer, g_fft_size/2, FFT_FORWARD );
-        // cast to complex
-        complex * cbuf = (complex *)buffer;
-
-        // end primitive
-        glEnd();
+//        glPopMatrix();
 
         // flush!
         glFlush( );
