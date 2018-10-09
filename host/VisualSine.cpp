@@ -50,6 +50,9 @@ void reshapeFunc( GLsizei width, GLsizei height );
 void keyboardFunc( unsigned char, int, int );
 void mouseFunc( int button, int state, int x, int y );
 
+//-----------------------------------------------------------------------------
+// global variables and definitions
+//-----------------------------------------------------------------------------
 // our datetype
 #define SAMPLE float
 // corresponding format for RtAudio
@@ -66,6 +69,8 @@ void mouseFunc( int button, int state, int x, int y );
 #define SND_FFT_SIZE    ( SND_BUFFER_SIZE * 2 )
 // DSP manipulation window size
 #define SND_MARSYAS_SIZE    ( 512 )
+//rbg color max
+#define CMAX 255
 
 // width and height
 long g_width = 1024;
@@ -94,8 +99,14 @@ GLfloat g_window[SND_BUFFER_SIZE]; // DFT transform window
 GLfloat g_log_positions[SND_FFT_SIZE/2]; // precompute positions for log spacing
 SAMPLE g_audio_buffer[SND_BUFFER_SIZE]; // latest mono buffer (possibly preview)
 
-// real-time audio
-//std::mutex g_mutex;
+// for waterfall
+struct Pt1D { float y; };
+Pt1D ** g_spectrums = NULL;
+GLuint g_depth = 20; //
+GLfloat g_wf_prc = 4/5;
+GLint g_len_hist = (GLint)round(g_depth*g_wf_prc);
+// the index associated with the waterfall
+GLint g_wf = 0;
 
 
 
@@ -202,8 +213,10 @@ int main( int argc, char ** argv )
     the_chuck->setParam("OUTPUT_CHANNELS", MY_CHANNELS);
 
     // TODO: initialize our chuck
+    the_chuck->init();
 
-    // TODO: run a chuck program
+    // TODO: run a chuck program./
+    //the_chuck->run();
 
 
     // go for it
@@ -268,6 +281,14 @@ void initGfx()
     glEnable( GL_COLOR_MATERIAL );
     // enable depth test
     glEnable( GL_DEPTH_TEST );
+
+    // initialize
+    g_spectrums = new Pt1D *[g_len_hist];
+    for( int i = 0; i < g_len_hist; i++ )
+    {
+        g_spectrums[i] = new Pt1D[SND_FFT_SIZE];
+        memset( g_spectrums[i], 0, sizeof(Pt1D)*SND_FFT_SIZE );
+    }
 }
 
 
@@ -408,7 +429,7 @@ void drawSnowCap(GLfloat y_snow_min, GLfloat x1,GLfloat y1,GLfloat x2,GLfloat y2
             // loop over buffer
             for(int i = 0; i < g_bufferSize; i++ )
             {
-                if (::fabs(g_buffer[i])>=1.5) {
+                if (::fabs(g_buffer[i])>=2.0) {
 
                     glColor3f(1.0,1.0,i/g_bufferSize); //yellow
                     //do i need to do this again??
@@ -459,15 +480,23 @@ void drawMountain(GLfloat lw, GLfloat mx, GLfloat mb, GLfloat mh, GLfloat w, GLf
 
 void drawMoon(float radius)
 {
-    const float DEG2RAD = MY_PIE/180;
+    //time domain moon rays
+    glLineWidth(1.0);
     glBegin(GL_LINE_LOOP);
-
     for (int i=0; i<360; i++)
     {
-      float degInRad = i*DEG2RAD;
+      float degInRad = i*MY_PIE/180;
+      glVertex2f(cos(degInRad)*radius+0.3*log(1+g_buffer[i])+4.4,0.3*log(1+g_buffer[i])+sin(degInRad)*radius+3.3);
+    }
+    glEnd();
+    //static moon
+    glLineWidth(0.5);
+    glBegin(GL_LINE_LOOP);
+    for (int i=0; i<360; i++)
+    {
+      float degInRad = i*MY_PIE/180;
       glVertex2f(cos(degInRad)*radius+4.4,sin(degInRad)*radius+3.3);
     }
-
     glEnd();
 }
 
@@ -477,10 +506,21 @@ void drawMoon(float radius)
 //-----------------------------------------------------------------------------
 void displayFunc( )
 {
-    // local state
+        // local state
         static GLfloat zrot = 0.0f, c = 0.0f;
         static GLfloat mb = 0.0, mh = 3.0; //mountain base y, mountain height y
         static GLfloat mx1 = -4.0, mx2 = -2.5, mx3=-0.2, mx4=1.75, mx5 = 4.0, mx6 = 5.7;//mountain x vertices
+
+        //initialized local variables
+        GLfloat x_anchor = -1;
+        GLfloat xinc = -1;
+        GLfloat j_fl = -1;
+        GLfloat x = -1;
+        GLfloat y = -1;
+        GLfloat y_scale = -1;
+        GLfloat y_shift = -1;
+        GLfloat xinc_scale = -1;
+        GLfloat len_now = g_depth - g_len_hist;
 
         // clear the color and depth buffers
         glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
@@ -507,30 +547,56 @@ void displayFunc( )
                 glPopMatrix();
 
                 /******* DRAW FFT *****************/
-                // reset starting point
-                GLfloat x_anchor = -7.0f;
-                GLfloat xinc = ::fabs(4*x_anchor / g_bufferSize);
-                GLfloat depth = 255;
                 // take forward FFT; result in buffer as FFT_SIZE/2 complex values
                 rfft( (float *)buffer, g_fft_size/2, FFT_FORWARD );
                 // cast to complex
                 complex * cbuf = (complex *)buffer;
-                // color
-
-                    // loop over buffer
-                    for(int j=0; j<depth; j++){
-                        GLfloat j_fl = (GLfloat)j;
-                        GLfloat x = x_anchor;
-                        glLineWidth( 0.5+1.5*j_fl/depth);
-                        glBegin( GL_LINE_STRIP );
-                        for(int i = 0; i < g_bufferSize/2; i++ )
-                        {
-                            glColor3f( 0.0, (255/depth)*j_fl/255, 1-(float)i/2/g_bufferSize );
-                            glVertex2f( x, 8*(1+5*j_fl/depth)*cmp_abs(cbuf[i])-(5*j_fl/depth));
-                            x += 0.1*xinc+6*log(1+j_fl/depth)*xinc;
+                // reset starting point
+                x_anchor = -7.0f;
+                xinc = ::fabs(4*x_anchor / g_bufferSize); //set increment size
+                //loop through waterfall depth
+                for(int j=0; j<g_depth; j++){
+                    j_fl = (GLfloat)j;
+                    x = x_anchor;
+                    y_scale = 5*(1+5*j_fl/g_depth);
+                    y_shift = (5*j_fl/g_depth);
+                    xinc_scale = 0.1+6*log(1+j_fl/g_depth);
+                    glLineWidth( 0.5+1.5*j_fl/g_depth);
+                    glBegin( GL_LINE_STRIP );
+                    // loop through buffer
+                    for(int i = 0; i < g_bufferSize/2; i++ )
+                    {
+                        glColor3f( 0.0, (CMAX/g_depth)*j_fl/CMAX, 1-(float)i/2/g_bufferSize );
+/*
+                        if(j<=g_len_hist) {
+                            //waterfall history of fft
+                            //1)get history of fft y-values
+                            y = g_spectrums[g_len_hist-j][i].y;
+                            //2)plot
+                            glVertex2f( x, y_scale*y-y_shift);
                         }
-                        glEnd();
+                        else if (j>g_len_hist & j<g_depth) {
+                            //real-time fft
+                            //0) get current buffer
+                            y = cmp_abs(cbuf[i]);
+                            // draw current spectrum
+                            glVertex2f( x, y_scale*y-y_shift);
+                        }
+                        else {
+                            //shift spectrums back in time
+                            for (int k=g_len_hist; k>0; k--) {
+                                g_spectrums[g_len_hist][i-1].y = g_spectrums[g_len_hist][i].y;
+                            }
+                            //1)copy current buffer into mememory
+                            g_spectrums[g_len_hist][i].y = y;
+                        }
+*/                      y = cmp_abs(cbuf[i]);
+                        // draw current spectrum
+                        glVertex2f( x, y_scale*y-y_shift);
+                        x += xinc_scale*xinc;
                     }
+                    glEnd();
+                }
                     // end primitive
             glPopMatrix();
 
