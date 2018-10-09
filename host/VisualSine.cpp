@@ -100,13 +100,12 @@ GLfloat g_log_positions[SND_FFT_SIZE/2]; // precompute positions for log spacing
 SAMPLE g_audio_buffer[SND_BUFFER_SIZE]; // latest mono buffer (possibly preview)
 
 // for waterfall
-struct Pt1D { float y; };
-Pt1D ** g_spectrums = NULL;
-GLuint g_depth = 20; //
-GLfloat g_wf_prc = 4/5;
-GLint g_len_hist = (GLint)round(g_depth*g_wf_prc);
+struct Pt2D { float x; float y;};
+Pt2D ** g_spectrums = NULL;
+GLuint g_depth = 36; //
+GLfloat g_wf_prc = .8;
+int g_len_hist = (int)round(g_depth*g_wf_prc);
 // the index associated with the waterfall
-GLint g_wf = 0;
 
 
 
@@ -123,17 +122,21 @@ int callme( void * outputBuffer, void * inputBuffer, unsigned int numFrames,
 
     // compute chuck!
     // (TODO: to fill in)
+    the_chuck->run(input, output, numFrames);
 
     // fill
     for( int i = 0; i < numFrames; i++ )
     {
         // copy the input to visualize only the left-most channel
+        //comment out for chuck, comment in for mic
         g_buffer[i] = input[i*MY_CHANNELS];
 
         // also copy in the output from chuck to our visualizer
-        // (TODO: to fill in)
+        //comment out for mic input, comment in for chuck
+        //g_buffer[i] = output[i*MY_CHANNELS];
 
         // mute output -- TODO will need to disable this once ChucK produces output, in order for you to hear it!
+        // comment out for chuck, comment in for mic input
         for( int j = 0; j < MY_CHANNELS; j++ ) { output[i*MY_CHANNELS + j] = 0; }
     }
 
@@ -208,15 +211,15 @@ int main( int argc, char ** argv )
     // set up chuck
     the_chuck = new ChucK();
     // TODO: set sample rate and number of in/out channels on our chuck - THIS IS WRONG!!!
-    the_chuck->setParam("SAMPLE_RATE", MY_SRATE);
-    the_chuck->setParam("INPUT_CHANNELS", MY_CHANNELS);
-    the_chuck->setParam("OUTPUT_CHANNELS", MY_CHANNELS);
+    the_chuck->setParam(CHUCK_PARAM_SAMPLE_RATE, MY_SRATE);
+    the_chuck->setParam(CHUCK_PARAM_INPUT_CHANNELS, MY_CHANNELS);
+    the_chuck->setParam(CHUCK_PARAM_OUTPUT_CHANNELS, MY_CHANNELS);
 
     // TODO: initialize our chuck
     the_chuck->init();
 
     // TODO: run a chuck program./
-    //the_chuck->run();
+    //the_chuck->compileCode("SinOsc food => dac; 5::second => now;" , "");
 
 
     // go for it
@@ -283,12 +286,20 @@ void initGfx()
     glEnable( GL_DEPTH_TEST );
 
     // initialize
-    g_spectrums = new Pt1D *[g_len_hist];
+    g_spectrums = new Pt2D*[g_len_hist];
     for( int i = 0; i < g_len_hist; i++ )
     {
-        g_spectrums[i] = new Pt1D[SND_FFT_SIZE];
-        memset( g_spectrums[i], 0, sizeof(Pt1D)*SND_FFT_SIZE );
+        g_spectrums[i] = new Pt2D[SND_FFT_SIZE];
+        memset( g_spectrums[i], 0, sizeof(Pt2D)*SND_FFT_SIZE );
     }
+/*
+    float ** g_spectrums = new SAMPLE *[g_len_hist];
+    for( int i = 0; i < g_len_hist; i++ )
+    {
+        g_spectrums[i] = new SAMPLE[SND_FFT_SIZE];
+        memset( g_spectrums[i], 0, sizeof(SAMPLE)*SND_FFT_SIZE );
+    }
+*/
 }
 
 
@@ -500,6 +511,80 @@ void drawMoon(float radius)
     glEnd();
 }
 
+void drawWaterfall() {
+
+    //initialized local variables
+    GLfloat x_anchor = -1;
+    GLfloat xinc = -1;
+    GLfloat j_fl = -1;
+    GLfloat x = -1;
+    GLfloat y = -1;
+    GLfloat y_scale = -1;
+    GLfloat y_shift = -1;
+    GLfloat xinc_scale = -1;
+    SAMPLE * buffer[g_bufferSize];
+    // get the latest (possibly preview) window
+    memset( buffer, 0, SND_FFT_SIZE * sizeof(SAMPLE) );
+    // copy currently playing audio into buffer
+    memcpy( buffer, g_buffer, g_bufferSize * sizeof(SAMPLE) );
+
+    /******* DRAW FFT *****************/
+
+    // take forward FFT; result in buffer as FFT_SIZE/2 complex values
+    rfft( (float *)buffer, g_fft_size/2, FFT_FORWARD );
+    // cast to complex
+    complex * cbuf = (complex *)buffer;
+
+    //copy each spectrum in history buffer to one previous
+    for (int k=g_len_hist-1; k>0; k--) {
+        //memcpy(g_spectrums[k], g_spectrums[k-1], g_bufferSize * sizeof(SAMPLE) );
+        for (int i = 0; i < g_bufferSize; i++ ) {
+            g_spectrums[k][i].y = g_spectrums[k-1][i].y;
+        }
+    }
+
+    //copy current buffer into spectrum mememory
+    for (int i = 0; i < g_bufferSize; i++ ) {
+        g_spectrums[0][i].y = cmp_abs(cbuf[i]);
+    }
+
+    // reset render starting point
+    x_anchor = -7.0f;
+    xinc = ::fabs(4*x_anchor / g_bufferSize); //set increment size
+
+    //loop through waterfall depth
+    for(int j=0; j<g_depth; j++){
+        //set level-specific parameters
+        j_fl = (float)j;
+        x = x_anchor;
+        y_scale = 5*(1+5*j_fl/g_depth);
+        y_shift = 4*j_fl/g_depth;
+        xinc_scale = 0.1+2*log(1+j_fl/g_depth);
+        glLineWidth( 0.5+1.5*j_fl/g_depth);
+        //begin line rendering
+        glBegin( GL_LINE_STRIP );
+        // loop through buffer
+        for(int i = 0; i < g_bufferSize; i++ )
+        {
+            glColor3f( 0.0, (CMAX/g_depth)*j_fl/CMAX, 1-(float)i/2/g_bufferSize );
+
+            if(j<g_len_hist) {
+                //get history of fft y-values
+                glVertex2f( x, y_scale * g_spectrums[g_len_hist-j-1][i].y - y_shift);
+            }
+            else if (j>=g_len_hist) {
+                //get current buffer
+                glVertex2f( x, y_scale * g_spectrums[0][i].y - y_shift);
+            }
+
+            // draw current spectrum
+
+            x += xinc_scale*xinc;
+        }
+        glEnd();
+    }
+}
+
 //-----------------------------------------------------------------------------
 // Name: displayFunc( )
 // Desc: callback function invoked to draw the client area
@@ -511,98 +596,21 @@ void displayFunc( )
         static GLfloat mb = 0.0, mh = 3.0; //mountain base y, mountain height y
         static GLfloat mx1 = -4.0, mx2 = -2.5, mx3=-0.2, mx4=1.75, mx5 = 4.0, mx6 = 5.7;//mountain x vertices
 
-        //initialized local variables
-        GLfloat x_anchor = -1;
-        GLfloat xinc = -1;
-        GLfloat j_fl = -1;
-        GLfloat x = -1;
-        GLfloat y = -1;
-        GLfloat y_scale = -1;
-        GLfloat y_shift = -1;
-        GLfloat xinc_scale = -1;
-        GLfloat len_now = g_depth - g_len_hist;
-
         // clear the color and depth buffers
         glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
         // save current matrix state
-        glPushMatrix( );
-
-           glPushMatrix( );
-               SAMPLE * buffer[g_bufferSize];
-               // get the latest (possibly preview) window
-               memset( buffer, 0, SND_FFT_SIZE * sizeof(SAMPLE) );
-               // copy currently playing audio into buffer
-               memcpy( buffer, g_buffer, g_bufferSize * sizeof(SAMPLE) );
-
                 /******* DRAW STATIC MOUNTAINS & TIME DOMAIN *****************/
-                glPushMatrix();
-                    drawMountain(8.0, mx1,mb,mh,2.5,0.0);
-                    drawMountain(12.0, mx2,mb,mh,2.5,-0.3);
-                    drawMountain(18.0, mx3,mb-0.1,mh,3.0,0.8);
-                    drawMountain(9.0, mx4,mb-0.15,mh,3.5,0.3);
-                    drawMountain(15.0, mx5,mb-0.25,mh,3.0,-0.6);
-                    drawMountain(30.0, mx6,mb-0.5,mh,2.0,-0.2);
-                    drawMoon(0.4);
-                glPopMatrix();
-
-                /******* DRAW FFT *****************/
-                // take forward FFT; result in buffer as FFT_SIZE/2 complex values
-                rfft( (float *)buffer, g_fft_size/2, FFT_FORWARD );
-                // cast to complex
-                complex * cbuf = (complex *)buffer;
-                // reset starting point
-                x_anchor = -7.0f;
-                xinc = ::fabs(4*x_anchor / g_bufferSize); //set increment size
-                //loop through waterfall depth
-                for(int j=0; j<g_depth; j++){
-                    j_fl = (GLfloat)j;
-                    x = x_anchor;
-                    y_scale = 5*(1+5*j_fl/g_depth);
-                    y_shift = (5*j_fl/g_depth);
-                    xinc_scale = 0.1+6*log(1+j_fl/g_depth);
-                    glLineWidth( 0.5+1.5*j_fl/g_depth);
-                    glBegin( GL_LINE_STRIP );
-                    // loop through buffer
-                    for(int i = 0; i < g_bufferSize/2; i++ )
-                    {
-                        glColor3f( 0.0, (CMAX/g_depth)*j_fl/CMAX, 1-(float)i/2/g_bufferSize );
-/*
-                        if(j<=g_len_hist) {
-                            //waterfall history of fft
-                            //1)get history of fft y-values
-                            y = g_spectrums[g_len_hist-j][i].y;
-                            //2)plot
-                            glVertex2f( x, y_scale*y-y_shift);
-                        }
-                        else if (j>g_len_hist & j<g_depth) {
-                            //real-time fft
-                            //0) get current buffer
-                            y = cmp_abs(cbuf[i]);
-                            // draw current spectrum
-                            glVertex2f( x, y_scale*y-y_shift);
-                        }
-                        else {
-                            //shift spectrums back in time
-                            for (int k=g_len_hist; k>0; k--) {
-                                g_spectrums[g_len_hist][i-1].y = g_spectrums[g_len_hist][i].y;
-                            }
-                            //1)copy current buffer into mememory
-                            g_spectrums[g_len_hist][i].y = y;
-                        }
-*/                      y = cmp_abs(cbuf[i]);
-                        // draw current spectrum
-                        glVertex2f( x, y_scale*y-y_shift);
-                        x += xinc_scale*xinc;
-                    }
-                    glEnd();
-                }
-                    // end primitive
-            glPopMatrix();
-
-
+        glPushMatrix();
+            drawMountain(8.0, mx1,mb,mh,2.5,0.0);
+            drawMountain(12.0, mx2,mb,mh,2.5,-0.3);
+            drawMountain(18.0, mx3,mb-0.1,mh,3.0,0.8);
+            drawMountain(9.0, mx4,mb-0.15,mh,3.5,0.3);
+            drawMountain(15.0, mx5,mb-0.25,mh,3.0,-0.6);
+            drawMountain(30.0, mx6,mb-0.5,mh,2.0,-0.2);
+            drawMoon(0.4);
+            drawWaterfall();
         glPopMatrix();
-
         // flush!
         glFlush( );
         // swap the double buffer
