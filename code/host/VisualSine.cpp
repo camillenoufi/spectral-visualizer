@@ -55,7 +55,7 @@ void mouseFunc( int button, int state, int x, int y );
 // global variables and definitions
 //-----------------------------------------------------------------------------
 // our datetype
-#define MIC_FLAG false //true if using microphone input, false if using Chuck input
+#define MIC_FLAG true //true if using microphone input, false if using Chuck input
 
 #define SAMPLE float
 // corresponding format for RtAudio
@@ -469,7 +469,7 @@ void drawSnowCap(GLfloat y_snow_min, GLfloat x1,GLfloat y1,GLfloat x2,GLfloat y2
     GLfloat x = -1;
     GLfloat inc = 1/g_bufferSize;
     GLfloat y_snow = -1;
-    GLint nWaves = 6;
+    GLint nWaves = 5;
 
     for(int j=0; j<nWaves; j++) {
         y_snow = y_snow_min + ((GLfloat)j/nWaves)*(y2-y_snow);
@@ -477,7 +477,7 @@ void drawSnowCap(GLfloat y_snow_min, GLfloat x1,GLfloat y1,GLfloat x2,GLfloat y2
         xR = getIntersect( y_snow , x2 , y2 , x3 , y3);      //ending point
         inc = ::fabs( (xR-xL) / g_bufferSize);      // increment
         x = xL;
-        glLineWidth( lw );  // time domain line width
+        glLineWidth( lw+((float) rand() / RAND_MAX));  // time domain line width
         glColor3f( 1.0, 1.0, 1.0 ); // color
         // apply the transform window
         //apply_window( (float*)g_buffer, g_window, g_bufferSize );
@@ -486,7 +486,7 @@ void drawSnowCap(GLfloat y_snow_min, GLfloat x1,GLfloat y1,GLfloat x2,GLfloat y2
             // loop over buffer
             for(int i = 0; i < g_bufferSize; i++ )
             {
-                if (::fabs(g_buffer[i])>=2.0) {
+                if (::fabs(g_buffer[i])>=2.5) {
 
                     glColor3f(1.0,1.0,i/g_bufferSize); //yellow
                     //do i need to do this again??
@@ -496,7 +496,7 @@ void drawSnowCap(GLfloat y_snow_min, GLfloat x1,GLfloat y1,GLfloat x2,GLfloat y2
                     //CHANGE BACKGROUND COLOR TO WHITE
                 }
                 else {
-                    glVertex2f( x, 0.2*g_buffer[i]+y_snow);
+                    glVertex3f( x, 0.5*g_buffer[i]+y_snow,0.001);
                 }
 
                 // plot
@@ -524,11 +524,11 @@ void drawMountain(GLfloat lw, GLfloat mx, GLfloat mb, GLfloat mh, GLfloat w, GLf
     glBegin(GL_LINE_STRIP);
     {
         glColor3f( 0.0 , 0.05, 0.1); //aged blue green
-        glVertex3f( x1,y1,0.1 );
+        glVertex3f( x1,y1,0.0 );
         glColor3f( 1.0 , 1.0, 1.0); //white
-        glVertex3f( x2,y2,0 );
+        glVertex3f( x2,y2,-0.0 );
         glColor3f( 0.0 , 0.05, 0.1); //aged blue green
-        glVertex3f( x3,y3,-0.1 );
+        glVertex3f( x3,y3,-0.001 );
     }
     glEnd();
 
@@ -551,14 +551,17 @@ void drawMoon(float radius)
     }
     glEnd();
     //static moon
-    glLineWidth(1.0);
-    glBegin(GL_LINE_LOOP);
-    for (int i=0; i<360; i++)
-    {
-      float degInRad = i*MY_PIE/180;
-      glVertex2f(cos(degInRad)*radius+4.4,sin(degInRad)*radius+3.3);
-    }
-    glEnd();
+//    glPushMatrix();
+        glLineWidth(1.0);
+//        glColor3f(211.0/CMAX,211.0/CMAX,211.0/CMAX);
+        glBegin(GL_LINE_LOOP);
+        for (int i=0; i<360; i++)
+        {
+          float degInRad = i*MY_PIE/180;
+          glVertex2f(cos(degInRad)*radius+4.4,sin(degInRad)*radius+3.3);
+        }
+        glEnd();
+//    glPopMatrix();
 }
 
 //-----------------------------------------------------------------------------
@@ -603,7 +606,7 @@ void drawWaterfall() {
         //set level-specific parameters
         j_fl = (float)j;
         x = x_anchor;
-        y_scale = 5*(1+5*j_fl/g_depth);
+        y_scale = sqrt(36*(1+5*j_fl/g_depth));
         y_shift = 4*j_fl/g_depth;
         xinc_scale = 2.5*log(1+j_fl/g_depth);
         glLineWidth( 0.5+1.5*j_fl/g_depth);
@@ -651,7 +654,7 @@ void displayFunc( )
             drawMountain(12.0, mx2,mb,mh,2.5,-0.3);
             drawMountain(18.0, mx3,mb-0.1,mh,3.0,0.8);
             drawMountain(9.0, mx4,mb-0.2,mh,3.5,0.3);
-            drawMountain(15.0, mx5,mb-0.5,mh,3.0,-0.6);
+            drawMountain(15.0, mx5,mb-0.5,mh,3.0,-0.5);
             drawMountain(30.0, mx6,mb-1.1,mh,2.0,-0.2);
             drawMoon(0.4);
             drawWaterfall();
