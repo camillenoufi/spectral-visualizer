@@ -162,7 +162,7 @@ string getChuckCode() {
         // set cutoff freq
         "600 => lpf.freq;"
         // set param of env
-        "e.set( 5::ms, 20::ms, .5, 20::ms );"   //(a,d,s height % of freq,r)
+        "e.set( 5::ms, 20::ms, .5, 30::ms );"   //(a,d,s height % of freq,r)
 
         // function
         "fun void playNote( Osc @ so, float pitch, dur T )"
@@ -188,7 +188,7 @@ string getChuckCode() {
         "playNote(foo, 64+12, Q/4);"
         "playNote(foo, 62+12, Q/4);"
         "playNote(foo, 60+12, Q*2);" //spork is saying the
-        "playNote(foo, 24, Q/2); "
+        "playNote(foo, 36, Q/2); "
         "playNote(foo, 64+12, Q/4); " //spork is saying the
         "playNote(foo, 67+12, Q/4); "
         "playNote(foo, 69+12, Q);"
@@ -200,8 +200,7 @@ string getChuckCode() {
         "playNote(foo, 64+12, Q/4);" //spork is saying the
         "playNote(foo, 62+12, Q*2);" //spork is saying the
         "playNote(foo, 60+12, Q*2); " //spork is saying the
-        "playNote(foo, 48, Q); " //spork is saying the
-        "playNote(foo, 36, Q); " //spork is saying the
+        "playNote(foo, 24, Q*2); " //spork is saying the
     "";
 
     return ck;
@@ -613,7 +612,7 @@ void drawWaterfall() {
         // loop through buffer
         for(int i = 0; i < g_bufferSize/2; i++ )
         {
-            glColor3f( 0.0, j_fl/g_depth*(CMAX/g_depth)*j_fl/CMAX, j_fl/g_depth*(1-(float)i/2/g_bufferSize) );
+            glColor3f( 0.0, (j_fl/g_depth)*(CMAX/g_depth)*(j_fl/CMAX), j_fl/g_depth*(1-(float)i/2/g_bufferSize) );
             if(j<g_len_hist) {
                 //get history of fft y-values
                 glVertex2f( x, y_scale * g_spectrums[g_len_hist-j-1][i].y - y_shift);
@@ -653,7 +652,7 @@ void displayFunc( )
             drawMountain(18.0, mx3,mb-0.1,mh,3.0,0.8);
             drawMountain(9.0, mx4,mb-0.2,mh,3.5,0.3);
             drawMountain(15.0, mx5,mb-0.5,mh,3.0,-0.6);
-            drawMountain(30.0, mx6,mb-1.0,mh,2.0,-0.2);
+            drawMountain(30.0, mx6,mb-1.1,mh,2.0,-0.2);
             drawMoon(0.4);
             drawWaterfall();
         glPopMatrix();
