@@ -55,7 +55,7 @@ void mouseFunc( int button, int state, int x, int y );
 // global variables and definitions
 //-----------------------------------------------------------------------------
 // our datetype
-#define MIC_FLAG true //true if using microphone input, false if using Chuck input
+#define MIC_FLAG false //true if using microphone input, false if using Chuck input
 
 #define SAMPLE float
 // corresponding format for RtAudio
