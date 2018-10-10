@@ -11,6 +11,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <iostream>
+#include <string>
 using namespace std;
 
 // FFT
@@ -54,6 +55,8 @@ void mouseFunc( int button, int state, int x, int y );
 // global variables and definitions
 //-----------------------------------------------------------------------------
 // our datetype
+#define MIC_FLAG true //true if using microphone input, false if using Chuck input
+
 #define SAMPLE float
 // corresponding format for RtAudio
 #define MY_FORMAT RTAUDIO_FLOAT32
@@ -88,22 +91,16 @@ GLfloat g_gain = 1.0f;
 GLfloat g_time_scale = 1.0f;
 GLfloat g_freq_scale = 1.0f;
 
-// how much to see
-GLint g_time_view = 1;
-GLint g_freq_view = 2;
-
 // global audio buffer
 SAMPLE g_fft_buffer[SND_FFT_SIZE];
 GLint g_fft_size = SND_FFT_SIZE;
 GLfloat g_window[SND_BUFFER_SIZE]; // DFT transform window
-GLfloat g_log_positions[SND_FFT_SIZE/2]; // precompute positions for log spacing
-SAMPLE g_audio_buffer[SND_BUFFER_SIZE]; // latest mono buffer (possibly preview)
 
 // for waterfall
-struct Pt2D { float x; float y;};
+struct Pt2D { float y;};
 Pt2D ** g_spectrums = NULL;
-GLuint g_depth = 36; //
-GLfloat g_wf_prc = .8;
+GLuint g_depth = 64; //
+GLfloat g_wf_prc = 0.7;
 int g_len_hist = (int)round(g_depth*g_wf_prc);
 // the index associated with the waterfall
 
@@ -121,31 +118,94 @@ int callme( void * outputBuffer, void * inputBuffer, unsigned int numFrames,
     SAMPLE * output = (SAMPLE *)outputBuffer;
 
     // compute chuck!
-    // (TODO: to fill in)
     the_chuck->run(input, output, numFrames);
 
     // fill
     for( int i = 0; i < numFrames; i++ )
     {
-        // copy the input to visualize only the left-most channel
-        //comment out for chuck, comment in for mic
-        g_buffer[i] = input[i*MY_CHANNELS];
-
-        // also copy in the output from chuck to our visualizer
-        //comment out for mic input, comment in for chuck
-        //g_buffer[i] = output[i*MY_CHANNELS];
-
-        // mute output -- TODO will need to disable this once ChucK produces output, in order for you to hear it!
-        // comment out for chuck, comment in for mic input
-        for( int j = 0; j < MY_CHANNELS; j++ ) { output[i*MY_CHANNELS + j] = 0; }
+        if(MIC_FLAG) {
+            // copy the input to visualize only the left-most channel
+            g_buffer[i] = input[i*MY_CHANNELS];
+        }
+        else if(!MIC_FLAG) {
+            // copy in the output from chuck to our visualizer
+            g_buffer[i] = output[i*MY_CHANNELS];
+        }
+        if(MIC_FLAG){
+            // un-mute output
+            for( int j = 0; j < MY_CHANNELS; j++ ) { output[i*MY_CHANNELS + j] = 0; }
+        }
     }
-
-
 
     return 0;
 }
 
 
+//-----------------------------------------------------------------------------
+// name: getChuckCode()
+// desc: return chuck program formatted as a string
+//-----------------------------------------------------------------------------
+string getChuckCode() {
+
+    string ck = ""
+        // unit gen declarations
+        "SinOsc foo => LPF lpf => ADSR e => NRev r_t => dac;"
+
+        // time durations
+        "800::ms => dur Q;"
+        "3*Q => now;"
+
+        // properties
+        "0.1 => foo.gain;"
+        //set dry/wet mix -> higher is more wet
+        ".15 => r_t.mix;"
+        // set cutoff freq
+        "600 => lpf.freq;"
+        // set param of env
+        "e.set( 5::ms, 20::ms, .5, 20::ms );"   //(a,d,s height % of freq,r)
+
+        // function
+        "fun void playNote( Osc @ so, float pitch, dur T )"
+        "{"
+            //convert pitch to freq, set it
+            "pitch => Std.mtof => so.freq;"   //midi to freq func from standard library (see programmer's guide)
+            // press the key
+            "e.keyOn();"
+            // play/wait until beginning of release
+            "T - e.releaseTime() => now;"
+            //release the key
+            "e.keyOff();"
+            // wait until release is done
+            "e.releaseTime() => now;"
+        "}"
+        // Shire Theme Song
+        "playNote(foo, 60+12, Q/2); " //spork is saying the
+        "playNote(foo, 62+12, Q/2); "
+        "playNote(foo, 64+12, Q);"
+        "playNote(foo, 67+12, Q);"
+        "playNote(foo, 64+12, Q); "
+        "playNote(foo, 62+12, Q/2);"
+        "playNote(foo, 64+12, Q/4);"
+        "playNote(foo, 62+12, Q/4);"
+        "playNote(foo, 60+12, Q*2);" //spork is saying the
+        "playNote(foo, 24, Q/2); "
+        "playNote(foo, 64+12, Q/4); " //spork is saying the
+        "playNote(foo, 67+12, Q/4); "
+        "playNote(foo, 69+12, Q);"
+        "playNote(foo, 72+12, Q);"
+        "playNote(foo, 71+12, Q);"
+        "playNote(foo, 67+12, Q);"
+        "playNote(foo, 64+12, Q*1.5);"
+        "playNote(foo, 65+12, Q/4);"
+        "playNote(foo, 64+12, Q/4);" //spork is saying the
+        "playNote(foo, 62+12, Q*2);" //spork is saying the
+        "playNote(foo, 60+12, Q*2); " //spork is saying the
+        "playNote(foo, 48, Q); " //spork is saying the
+        "playNote(foo, 36, Q); " //spork is saying the
+    "";
+
+    return ck;
+}
 
 
 //-----------------------------------------------------------------------------
@@ -210,16 +270,11 @@ int main( int argc, char ** argv )
 
     // set up chuck
     the_chuck = new ChucK();
-    // TODO: set sample rate and number of in/out channels on our chuck - THIS IS WRONG!!!
     the_chuck->setParam(CHUCK_PARAM_SAMPLE_RATE, MY_SRATE);
     the_chuck->setParam(CHUCK_PARAM_INPUT_CHANNELS, MY_CHANNELS);
     the_chuck->setParam(CHUCK_PARAM_OUTPUT_CHANNELS, MY_CHANNELS);
-
-    // TODO: initialize our chuck
     the_chuck->init();
-
-    // TODO: run a chuck program./
-    //the_chuck->compileCode("SinOsc food => dac; 5::second => now;" , "");
+    the_chuck->compileCode(getChuckCode(), "");
 
 
     // go for it
@@ -292,14 +347,6 @@ void initGfx()
         g_spectrums[i] = new Pt2D[SND_FFT_SIZE];
         memset( g_spectrums[i], 0, sizeof(Pt2D)*SND_FFT_SIZE );
     }
-/*
-    float ** g_spectrums = new SAMPLE *[g_len_hist];
-    for( int i = 0; i < g_len_hist; i++ )
-    {
-        g_spectrums[i] = new SAMPLE[SND_FFT_SIZE];
-        memset( g_spectrums[i], 0, sizeof(SAMPLE)*SND_FFT_SIZE );
-    }
-*/
 }
 
 
@@ -489,10 +536,14 @@ void drawMountain(GLfloat lw, GLfloat mx, GLfloat mb, GLfloat mh, GLfloat w, GLf
     drawSnowCap(y_snow,x1,y1,x2,y2,x3,y3,lw/16);
 }
 
+//-----------------------------------------------------------------------------
+// Name: drawMoon( )
+// Desc: draw static and time-domain affected moon
+//-----------------------------------------------------------------------------
 void drawMoon(float radius)
 {
     //time domain moon rays
-    glLineWidth(1.0);
+    glLineWidth(0.5);
     glBegin(GL_LINE_LOOP);
     for (int i=0; i<360; i++)
     {
@@ -501,7 +552,7 @@ void drawMoon(float radius)
     }
     glEnd();
     //static moon
-    glLineWidth(0.5);
+    glLineWidth(1.0);
     glBegin(GL_LINE_LOOP);
     for (int i=0; i<360; i++)
     {
@@ -511,36 +562,32 @@ void drawMoon(float radius)
     glEnd();
 }
 
+//-----------------------------------------------------------------------------
+// Name: drawWaterfall( )
+// Desc: draw fft history waterfall
+//-----------------------------------------------------------------------------
 void drawWaterfall() {
 
     //initialized local variables
-    GLfloat x_anchor = -1;
-    GLfloat xinc = -1;
+    GLfloat x_anchor = -1, xinc = -1, xinc_scale = -1;
     GLfloat j_fl = -1;
-    GLfloat x = -1;
-    GLfloat y = -1;
-    GLfloat y_scale = -1;
-    GLfloat y_shift = -1;
-    GLfloat xinc_scale = -1;
+    GLfloat x = -1, y = -1;
+    GLfloat y_scale = -1, y_shift = -1;
     SAMPLE * buffer[g_bufferSize];
     // get the latest (possibly preview) window
     memset( buffer, 0, SND_FFT_SIZE * sizeof(SAMPLE) );
     // copy currently playing audio into buffer
     memcpy( buffer, g_buffer, g_bufferSize * sizeof(SAMPLE) );
 
-    /******* DRAW FFT *****************/
 
     // take forward FFT; result in buffer as FFT_SIZE/2 complex values
     rfft( (float *)buffer, g_fft_size/2, FFT_FORWARD );
     // cast to complex
     complex * cbuf = (complex *)buffer;
 
-    //copy each spectrum in history buffer to one previous
+    //shift memory down through spectrum array
     for (int k=g_len_hist-1; k>0; k--) {
-        //memcpy(g_spectrums[k], g_spectrums[k-1], g_bufferSize * sizeof(SAMPLE) );
-        for (int i = 0; i < g_bufferSize; i++ ) {
-            g_spectrums[k][i].y = g_spectrums[k-1][i].y;
-        }
+        memcpy(g_spectrums[k], g_spectrums[k-1], g_bufferSize * sizeof(SAMPLE) );
     }
 
     //copy current buffer into spectrum mememory
@@ -559,15 +606,14 @@ void drawWaterfall() {
         x = x_anchor;
         y_scale = 5*(1+5*j_fl/g_depth);
         y_shift = 4*j_fl/g_depth;
-        xinc_scale = 0.1+2*log(1+j_fl/g_depth);
+        xinc_scale = 2.5*log(1+j_fl/g_depth);
         glLineWidth( 0.5+1.5*j_fl/g_depth);
         //begin line rendering
         glBegin( GL_LINE_STRIP );
         // loop through buffer
-        for(int i = 0; i < g_bufferSize; i++ )
+        for(int i = 0; i < g_bufferSize/2; i++ )
         {
-            glColor3f( 0.0, (CMAX/g_depth)*j_fl/CMAX, 1-(float)i/2/g_bufferSize );
-
+            glColor3f( 0.0, j_fl/g_depth*(CMAX/g_depth)*j_fl/CMAX, j_fl/g_depth*(1-(float)i/2/g_bufferSize) );
             if(j<g_len_hist) {
                 //get history of fft y-values
                 glVertex2f( x, y_scale * g_spectrums[g_len_hist-j-1][i].y - y_shift);
@@ -605,9 +651,9 @@ void displayFunc( )
             drawMountain(8.0, mx1,mb,mh,2.5,0.0);
             drawMountain(12.0, mx2,mb,mh,2.5,-0.3);
             drawMountain(18.0, mx3,mb-0.1,mh,3.0,0.8);
-            drawMountain(9.0, mx4,mb-0.15,mh,3.5,0.3);
-            drawMountain(15.0, mx5,mb-0.25,mh,3.0,-0.6);
-            drawMountain(30.0, mx6,mb-0.5,mh,2.0,-0.2);
+            drawMountain(9.0, mx4,mb-0.2,mh,3.5,0.3);
+            drawMountain(15.0, mx5,mb-0.5,mh,3.0,-0.6);
+            drawMountain(30.0, mx6,mb-1.0,mh,2.0,-0.2);
             drawMoon(0.4);
             drawWaterfall();
         glPopMatrix();
