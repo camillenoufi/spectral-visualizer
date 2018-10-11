@@ -152,11 +152,10 @@ string getChuckCode() {
         "SinOsc foo => LPF lpf => ADSR e => NRev r_t => dac;"
 
         // time durations
-        "800::ms => dur Q;"
+        "500::ms => dur Q;"
         "3*Q => now;"
-
         // properties
-        "0.1 => foo.gain;"
+        "0.3 => foo.gain;"
         //set dry/wet mix -> higher is more wet
         ".15 => r_t.mix;"
         // set cutoff freq
@@ -201,7 +200,24 @@ string getChuckCode() {
         "playNote(foo, 62+12, Q*2);" //spork is saying the
         "playNote(foo, 60+12, Q*2); " //spork is saying the
         "playNote(foo, 24, Q*2); " //spork is saying the
-    "";
+        "Q*4 => now;"
+/*
+        // sound file
+        "\"Users/camillenoufi/cnoufi_G/y1/256a/HW1//moonlight_sonata_cut.wav\" => string filename;"
+        // the patch
+        "SndBuf buf => dac;"
+        // load the file
+        "filename => buf.read;"
+
+        // time loop
+        "while( true ) {"
+            "0 => buf.pos;"
+            //Math.random2f(.1,.2) => buf.gain;
+            //Math.random2f(.5,1.5) => buf.rate;
+            "100::second => now;"
+        "}"
+*/
+        "";
 
     return ck;
 }
