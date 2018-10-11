@@ -1,6 +1,6 @@
 //-----------------------------------------------------------------------------
 // name: VisualSine.cpp
-// desc: real-time spectrum visualizer with mountain theme
+// desc: real-time spectrum visualizer: tundra lake at night
 //
 // author: Camille Noufi (cnoufi@ccrma.stanford.edu)
 //   date: fall 2018
