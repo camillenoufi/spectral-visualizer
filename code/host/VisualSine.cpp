@@ -55,7 +55,7 @@ void mouseFunc( int button, int state, int x, int y );
 // global variables and definitions
 //-----------------------------------------------------------------------------
 // our datetype
-#define MIC_FLAG true //true if using microphone input, false if using Chuck input
+#define MIC_FLAG false //true if using microphone input, false if using Chuck input
 
 #define SAMPLE float
 // corresponding format for RtAudio
@@ -99,9 +99,11 @@ GLfloat g_window[SND_BUFFER_SIZE]; // DFT transform window
 // for waterfall
 struct Pt2D { float y;};
 Pt2D ** g_spectrums = NULL;
-GLuint g_depth = 64; //
-GLfloat g_wf_prc = 0.7;
+GLuint g_depth = 24; //
+GLfloat g_wf_prc = 0.75;
 int g_len_hist = (int)round(g_depth*g_wf_prc);
+// for lightning bolt
+GLfloat g_bolt_y = -1.0;
 // the index associated with the waterfall
 
 
@@ -147,7 +149,9 @@ int callme( void * outputBuffer, void * inputBuffer, unsigned int numFrames,
 //-----------------------------------------------------------------------------
 string getChuckCode() {
 
-    string ck = ""
+    string ck_path = "narr.ck";
+
+    /*
         // unit gen declarations
         "SinOsc foo => LPF lpf => ADSR e => NRev r_t => dac;"
 
@@ -215,11 +219,9 @@ string getChuckCode() {
             //Math.random2f(.1,.2) => buf.gain;
             //Math.random2f(.5,1.5) => buf.rate;
             "100::second => now;"
-        "}"
+        "}";
 */
-        "";
-
-    return ck;
+    return ck_path;
 }
 
 
@@ -288,6 +290,7 @@ int main( int argc, char ** argv )
     the_chuck->setParam(CHUCK_PARAM_SAMPLE_RATE, MY_SRATE);
     the_chuck->setParam(CHUCK_PARAM_INPUT_CHANNELS, MY_CHANNELS);
     the_chuck->setParam(CHUCK_PARAM_OUTPUT_CHANNELS, MY_CHANNELS);
+    the_chuck->setParam(CHUCK_PARAM_WORKING_DIRECTORY, ".");
     the_chuck->init();
     the_chuck->compileCode(getChuckCode(), "");
 
@@ -486,7 +489,7 @@ void drawSnowCap(GLfloat y_snow_min, GLfloat x1,GLfloat y1,GLfloat x2,GLfloat y2
     GLfloat inc = 1/g_bufferSize;
     GLfloat y_snow = -1;
     GLint nWaves = 5;
-
+    GLfloat y_bolt = -1;
     for(int j=0; j<nWaves; j++) {
         y_snow = y_snow_min + ((GLfloat)j/nWaves)*(y2-y_snow);
         xL = getIntersect( y_snow , x1 , y1 , x2 , y2);     // starting point
@@ -508,8 +511,9 @@ void drawSnowCap(GLfloat y_snow_min, GLfloat x1,GLfloat y1,GLfloat x2,GLfloat y2
                     //do i need to do this again??
                     glRotatef(bolt_rot,0,1,0); bolt_rot += 1;
                     glBegin( GL_LINE_STRIP );
-                    glVertex2f( -2, -0.5*::fabs(g_buffer[i]+y_snow));
-                    //CHANGE BACKGROUND COLOR TO WHITE
+                    y_bolt = -0.2*::fabs(g_buffer[i]+y_snow);
+                    g_bolt_y = y_bolt;
+                    glVertex3f( -2.0, y_bolt,1.0);
                 }
                 else {
                     glVertex3f( x, 0.5*g_buffer[i]+y_snow,0.001);
@@ -563,7 +567,7 @@ void drawMoon(float radius)
     for (int i=0; i<360; i++)
     {
       float degInRad = i*MY_PIE/180;
-      glVertex2f(cos(degInRad)*radius+0.3*log(1+g_buffer[i])+4.4,0.3*log(1+g_buffer[i])+sin(degInRad)*radius+3.3);
+      glVertex3f(cos(degInRad)*radius+0.3*log(1+g_buffer[i])+4.4,0.3*log(1+g_buffer[i])+sin(degInRad)*radius+3.3,0.2);
     }
     glEnd();
     //static moon
@@ -574,7 +578,7 @@ void drawMoon(float radius)
         for (int i=0; i<360; i++)
         {
           float degInRad = i*MY_PIE/180;
-          glVertex2f(cos(degInRad)*radius+4.4,sin(degInRad)*radius+3.3);
+          glVertex3f(cos(degInRad)*radius+4.4,sin(degInRad)*radius+3.3,0.2);
         }
         glEnd();
 //    glPopMatrix();
@@ -616,29 +620,38 @@ void drawWaterfall() {
     // reset render starting point
     x_anchor = -7.0f;
     xinc = ::fabs(4*x_anchor / g_bufferSize); //set increment size
-
+    //glBegin( GL_LINE_STRIP );
     //loop through waterfall depth
     for(int j=0; j<g_depth; j++){
         //set level-specific parameters
         j_fl = (float)j;
         x = x_anchor;
-        y_scale = sqrt(36*(1+5*j_fl/g_depth));
-        y_shift = 4*j_fl/g_depth;
+        y_scale = sqrt(49*(1+5*j_fl/g_depth));
+        y_shift = -4*j_fl/g_depth;
         xinc_scale = 2.5*log(1+j_fl/g_depth);
-        glLineWidth( 0.5+1.5*j_fl/g_depth);
+        glLineWidth( 3*j_fl/g_depth);
         //begin line rendering
         glBegin( GL_LINE_STRIP );
         // loop through buffer
         for(int i = 0; i < g_bufferSize/2; i++ )
         {
-            glColor3f( 0.0, (j_fl/g_depth)*(CMAX/g_depth)*(j_fl/CMAX), j_fl/g_depth*(1-(float)i/2/g_bufferSize) );
+            //set color
+            if (::fabs(g_buffer[i])>=2.5) {
+                if( (x>1.9 & x<2.0) & (y_shift>(g_bolt_y-.1) & y_shift<(g_bolt_y+.1)) ) {
+                    glColor3f( 1.0, 1.0, 0.8 );
+                }
+            }
+            else {
+                glColor3f( 0.0, (j_fl/g_depth)*(CMAX/g_depth)*(j_fl/CMAX), j_fl/g_depth*(1-(float)i/2/g_bufferSize) );
+            }
+            //render drawing
             if(j<g_len_hist) {
                 //get history of fft y-values
-                glVertex2f( x, y_scale * g_spectrums[g_len_hist-j-1][i].y - y_shift);
+                glVertex3f( x, y_scale * g_spectrums[g_len_hist-j-1][i].y + y_shift,0.5*j_fl/g_depth);
             }
             else if (j>=g_len_hist) {
                 //get current buffer
-                glVertex2f( x, y_scale * g_spectrums[0][i].y - y_shift);
+                glVertex3f( x, y_scale * g_spectrums[0][i].y + y_shift,0.5*j_fl/g_depth);
             }
 
             // draw current spectrum
@@ -647,6 +660,7 @@ void drawWaterfall() {
         }
         glEnd();
     }
+    //glEnd();
 }
 
 //-----------------------------------------------------------------------------
