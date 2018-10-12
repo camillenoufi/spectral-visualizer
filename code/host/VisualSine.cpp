@@ -150,77 +150,6 @@ int callme( void * outputBuffer, void * inputBuffer, unsigned int numFrames,
 string getChuckCode() {
 
     string ck_path = "narr.ck";
-
-    /*
-        // unit gen declarations
-        "SinOsc foo => LPF lpf => ADSR e => NRev r_t => dac;"
-
-        // time durations
-        "500::ms => dur Q;"
-        "3*Q => now;"
-        // properties
-        "0.3 => foo.gain;"
-        //set dry/wet mix -> higher is more wet
-        ".15 => r_t.mix;"
-        // set cutoff freq
-        "600 => lpf.freq;"
-        // set param of env
-        "e.set( 5::ms, 20::ms, .5, 30::ms );"   //(a,d,s height % of freq,r)
-
-        // function
-        "fun void playNote( Osc @ so, float pitch, dur T )"
-        "{"
-            //convert pitch to freq, set it
-            "pitch => Std.mtof => so.freq;"   //midi to freq func from standard library (see programmer's guide)
-            // press the key
-            "e.keyOn();"
-            // play/wait until beginning of release
-            "T - e.releaseTime() => now;"
-            //release the key
-            "e.keyOff();"
-            // wait until release is done
-            "e.releaseTime() => now;"
-        "}"
-        // Shire Theme Song
-        "playNote(foo, 60+12, Q/2); " //spork is saying the
-        "playNote(foo, 62+12, Q/2); "
-        "playNote(foo, 64+12, Q);"
-        "playNote(foo, 67+12, Q);"
-        "playNote(foo, 64+12, Q); "
-        "playNote(foo, 62+12, Q/2);"
-        "playNote(foo, 64+12, Q/4);"
-        "playNote(foo, 62+12, Q/4);"
-        "playNote(foo, 60+12, Q*2);" //spork is saying the
-        "playNote(foo, 36, Q/2); "
-        "playNote(foo, 64+12, Q/4); " //spork is saying the
-        "playNote(foo, 67+12, Q/4); "
-        "playNote(foo, 69+12, Q);"
-        "playNote(foo, 72+12, Q);"
-        "playNote(foo, 71+12, Q);"
-        "playNote(foo, 67+12, Q);"
-        "playNote(foo, 64+12, Q*1.5);"
-        "playNote(foo, 65+12, Q/4);"
-        "playNote(foo, 64+12, Q/4);" //spork is saying the
-        "playNote(foo, 62+12, Q*2);" //spork is saying the
-        "playNote(foo, 60+12, Q*2); " //spork is saying the
-        "playNote(foo, 24, Q*2); " //spork is saying the
-        "Q*4 => now;"
-/*
-        // sound file
-        "\"Users/camillenoufi/cnoufi_G/y1/256a/HW1//moonlight_sonata_cut.wav\" => string filename;"
-        // the patch
-        "SndBuf buf => dac;"
-        // load the file
-        "filename => buf.read;"
-
-        // time loop
-        "while( true ) {"
-            "0 => buf.pos;"
-            //Math.random2f(.1,.2) => buf.gain;
-            //Math.random2f(.5,1.5) => buf.rate;
-            "100::second => now;"
-        "}";
-*/
     return ck_path;
 }
 
@@ -292,7 +221,7 @@ int main( int argc, char ** argv )
     the_chuck->setParam(CHUCK_PARAM_OUTPUT_CHANNELS, MY_CHANNELS);
     the_chuck->setParam(CHUCK_PARAM_WORKING_DIRECTORY, ".");
     the_chuck->init();
-    the_chuck->compileCode(getChuckCode(), "");
+    the_chuck->compileFile("/Users/camillenoufi/cnoufi_G/y1/256A/HW1/code/narr.ck", "");
 
 
     // go for it

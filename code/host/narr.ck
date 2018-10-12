@@ -1,46 +1,57 @@
-// CHuck tutorial 10/3
+Clarinet clair => JCRev r => dac;
+Clarinet c => r => dac;
+.75 => r.gain;
+.1 => r.mix;
 
-// start vm by 'cmd .'
-// /* */ is block command
+// the score: midi notes
+[ 61, 63, 65, 66, 68, 66, 65, 63, 61 ] @=> int treb[];
+[ 61, 63, 65, 66, 68, 66, 65, 63, 61 ] @=> int bass[];
 
-// THIS IS A patch
-//adsr is envelope, lpf 2nd order butterworth, NRev is a reverb convolution
+//beat
+300::ms => dur Q;
 
-SqrOsc foo => LPF lpf => ADSR e => NRev r => dac;
-SqrOsc bar => lpf;
-.2 => foo.gain;
-.1=> bar.gain;
-//set dry/wet mix -> higher is more wet
-.2 => r.mix;
-// set cutoff freq
-500 => lpf.freq;
-// set param of env
-e.set( 10::ms, 5::ms, .5, 20::ms );   //(a,d,s height % of freq,r)
-
-200::ms => dur Q;
-
-while(true)
+// infinite time-loop
+while( true )
 {
-    // cmin7 in 6/8 time
-    spork ~ playNote(bar, 72, Q); playNote( foo, 60, Q ); //spork is saying the
-    spork ~ playNote(bar, 70, Q); playNote( foo, 63, Q ); 
-    spork ~ playNote(bar, 67, Q); playNote( foo, 67, Q ); 
-    spork ~ playNote(bar, 63, Q); playNote( foo, 70, Q ); 
-    spork ~ playNote(bar, 60, Q); playNote( foo, 72, Q ); 
-    Q => now;
+    Math.random2f( 64, 128 ) => float stiffness;
+    Math.random2f( 0, 128 ) => float noisegain;
+    Math.random2f( 0, 128 ) => float vibratofreq;
+    Math.random2f( 0, 128 ) => float vibratogain;
+    Math.random2f( 64, 128 ) => float pressure;
+
+    //<<< "---", "" >>>;
+    //<<< "reed stiffness:", stiffness >>>;
+    //<<< "noise gain:", noisegain >>>;
+    //<<< "vibrato freq:", vibratofreq >>>;
+    //<<< "vibrato gain:", vibratogain >>>;
+    //<<< "breath pressure:", pressure >>>;
+
+    // clear
+    clair.clear( 1.0 );
+
+    // reed stiffness
+    clair.controlChange( 2, stiffness );
+    // noise gain
+    clair.controlChange( 4, noisegain );
+    // vibrato freq
+    clair.controlChange( 11, vibratofreq );
+    // vibrato gain
+    clair.controlChange( 1, vibratogain );
+    // breath pressure
+    clair.controlChange( 128, pressure );
+
+    for( int i; i < treb.cap(); i++ )
+    {
+        spork ~ play(clair, bass[i], .8, Q); play(c, 5+treb[i], Math.random2f(.6,.9),Q);
+    }
+    3::second => now;
 }
 
-// function
-fun void playNote( Osc @ so, float pitch, dur T )
+// basic play function (add more arguments as needed)
+fun void play( Clarinet @ cl, float note, float velocity, dur T )
 {
-    //convert pitch to freq, set it
-    pitch => Std.mtof => so.freq;   //midi to freq func from standard library (see programmer's guide)
-    // press the key
-    e.keyOn();
-    // play/wait until beginning of release
-    T - e.releaseTime() => now;
-    //release the key
-    e.keyOff();
-    // wait until release is done
-    e.releaseTime() => now;
+    // start the note
+    Std.mtof( note ) => cl.freq;
+    velocity => cl.noteOn;
+    T => now;
 }
