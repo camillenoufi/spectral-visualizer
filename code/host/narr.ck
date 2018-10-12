@@ -1,23 +1,31 @@
-Clarinet clair => JCRev r => dac;
-Clarinet c => r => dac;
+Clarinet ct => JCRev r => dac;
+Clarinet clair => r => dac;
 .75 => r.gain;
 .1 => r.mix;
 
-// the score: midi notes
-[ 61, 63, 65, 66, 68, 66, 65, 63, 61 ] @=> int treb[];
-[ 61, 63, 65, 66, 68, 66, 65, 63, 61 ] @=> int bass[];
-
 //beat
-300::ms => dur Q;
+400::ms => dur Q;
+
+// the score: midi notes
+//Verse 1
+[ 60, 62, 63, 67, 63, 62, 63, 62, 60, 60, 63, 67, 68, 72, 71, 67, 63, 65, 63, 62, 60, 60 ] @=> int treb_v1[];
+[ 60, 62, 63, 67, 63, 62, 63, 62, 60, 60, 63, 67, 68, 72, 71, 67, 63, 65, 63, 62, 60, 60 ] @=> int bass_v1[];
+[ .5,.5,1,1,1,.5,.25,.25,2,.5,.25,.25,1,1,1,1,1.5,.25,.25,2,2,2 ] @=> float dura_v1[];
+
+//Verse 2
+[ 60, 62, 63, 62, 60 ] @=> int treb_v2[];
+[ 63, 64, 65, 64, 63 ] @=> int bass_v2[];
+[ 1.0,1.0,1.0,1.0,2.0 ] @=> float dura_v2[];
+
 
 // infinite time-loop
 while( true )
 {
-    Math.random2f( 64, 128 ) => float stiffness;
+    Math.random2f( 63, 128 ) => float stiffness;
     Math.random2f( 0, 128 ) => float noisegain;
     Math.random2f( 0, 128 ) => float vibratofreq;
     Math.random2f( 0, 128 ) => float vibratogain;
-    Math.random2f( 64, 128 ) => float pressure;
+    Math.random2f( 63, 128 ) => float pressure;
 
     //<<< "---", "" >>>;
     //<<< "reed stiffness:", stiffness >>>;
@@ -40,11 +48,19 @@ while( true )
     // breath pressure
     clair.controlChange( 128, pressure );
 
-    for( int i; i < treb.cap(); i++ )
+    //
+    for( int i; i < treb_v1.cap(); i++ )
     {
-        spork ~ play(clair, bass[i], .8, Q); play(c, 5+treb[i], Math.random2f(.6,.9),Q);
+        spork ~ play(clair, bass_v1[i], .8, dura_v1[i]*Q); play(ct, treb_v1[i], Math.random2f(.6,.9), dura_v1[i]*Q);
     }
-    3::second => now;
+    1::second => now;
+    
+    for( int i; i < treb_v2.cap(); i++ )
+    {
+        spork ~ play(clair, bass_v2[i], .8, dura_v2[i]*Q); play(ct, treb_v2[i], Math.random2f(.6,.9), dura_v2[i]*Q);
+    }
+    1::second => now;
+    
 }
 
 // basic play function (add more arguments as needed)
