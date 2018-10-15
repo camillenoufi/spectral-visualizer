@@ -100,7 +100,7 @@ GLfloat g_window[SND_BUFFER_SIZE]; // DFT transform window
 struct Pt2D { float y;};
 Pt2D ** g_spectrums = NULL;
 GLuint g_depth = 24; //
-GLfloat g_wf_prc = 0.75;
+GLfloat g_wf_prc = 0.8;
 int g_len_hist = (int)round(g_depth*g_wf_prc);
 // for lightning bolt
 GLfloat g_bolt_y = -1.0;
@@ -145,12 +145,10 @@ int callme( void * outputBuffer, void * inputBuffer, unsigned int numFrames,
 
 //-----------------------------------------------------------------------------
 // name: getChuckCode()
-// desc: return chuck program formatted as a string
+// desc: return chuck program formatted as a string, use with compileCode()
 //-----------------------------------------------------------------------------
-string getChuckCode() {
-
-    string ck_path = "narr.ck";
-    return ck_path;
+const string getChuckCode() {
+    return "";
 }
 
 
@@ -221,7 +219,7 @@ int main( int argc, char ** argv )
     the_chuck->setParam(CHUCK_PARAM_OUTPUT_CHANNELS, MY_CHANNELS);
     the_chuck->setParam(CHUCK_PARAM_WORKING_DIRECTORY, ".");
     the_chuck->init();
-    the_chuck->compileFile("/Users/camillenoufi/cnoufi_G/y1/256A/HW1/code/narr.ck", "");
+    the_chuck->compileFile("./narr.ck", "");
 
 
     // go for it
@@ -434,18 +432,19 @@ void drawSnowCap(GLfloat y_snow_min, GLfloat x1,GLfloat y1,GLfloat x2,GLfloat y2
             // loop over buffer
             for(int i = 0; i < g_bufferSize; i++ )
             {
-                if (::fabs(g_buffer[i])>=2.5) {
-
+                if (::fabs(g_buffer[i])>=0.4) {
+                    //std::cout << g_buffer[i] << '\n';
                     glColor3f(1.0,1.0,i/g_bufferSize); //yellow
+                    glLineWidth( 2*lw+((float) rand() / RAND_MAX));
                     //do i need to do this again??
                     glRotatef(bolt_rot,0,1,0); bolt_rot += 1;
                     glBegin( GL_LINE_STRIP );
-                    y_bolt = -0.2*::fabs(g_buffer[i]+y_snow);
+                    y_bolt = -0.7*::fabs(g_buffer[i]+y_snow);
                     g_bolt_y = y_bolt;
-                    glVertex3f( -2.0, y_bolt,1.0);
+                    glVertex3f( -3.5, y_bolt,0.4);
                 }
                 else {
-                    glVertex3f( x, 0.5*g_buffer[i]+y_snow,0.001);
+                    glVertex3f( x, g_buffer[i]+y_snow,0.001);
                 }
 
                 // plot
@@ -549,20 +548,20 @@ void drawWaterfall() {
     // reset render starting point
     x_anchor = -7.0f;
     xinc = ::fabs(4*x_anchor / g_bufferSize); //set increment size
-    //glBegin( GL_LINE_STRIP );
+    //glBegin( GL_TRIANGLE_STRIP );
     //loop through waterfall depth
     for(int j=0; j<g_depth; j++){
         //set level-specific parameters
         j_fl = (float)j;
         x = x_anchor;
-        y_scale = sqrt(49*(1+5*j_fl/g_depth));
+        y_scale = pow(5+5*j_fl/g_depth,2);
         y_shift = -4*j_fl/g_depth;
-        xinc_scale = 2.5*log(1+j_fl/g_depth);
+        xinc_scale = 4*log(1+j_fl/g_depth);
         glLineWidth( 3*j_fl/g_depth);
         //begin line rendering
-        glBegin( GL_LINE_STRIP );
+        glBegin( GL_TRIANGLE_STRIP );
         // loop through buffer
-        for(int i = 0; i < g_bufferSize/2; i++ )
+        for(int i = 0; i < g_bufferSize/3; i++ )
         {
             //set color
             if (::fabs(g_buffer[i])>=2.5) {
