@@ -100,7 +100,7 @@ GLfloat g_window[SND_BUFFER_SIZE]; // DFT transform window
 struct Pt2D { float y;};
 Pt2D ** g_spectrums = NULL;
 GLuint g_depth = 127; //
-GLfloat g_wf_prc = 0.95;
+GLfloat g_wf_prc = 0.98;
 int g_len_hist = (int)round(g_depth*g_wf_prc);
 // for lightning bolt
 GLfloat g_bolt_y = -1.0;
