@@ -432,7 +432,8 @@ void drawStars() {
             for(int i = 0; i < g_bufferSize; i++ )
             {
                 if (::fabs(g_buffer[i])>=0.4) {
-                    glColor3f(1.0,0.84,0.0); //light goldenrod yellow
+                    glColor3f( color, color-.16, color ); //light goldenrod yellow
+                    glLineWidth(3.0);  // time domain line width
                     glBegin( GL_TRIANGLES );
                 }
                 //glBegin( GL_LINE_STRIP );

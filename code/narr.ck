@@ -117,7 +117,7 @@ fun void play( Clarinet @ cl, float note, float velocity, dur T ) {
 
 
 //============ MAIN ROUTINE ======================= 
-//while (true) {
+while (true) {
     // mm1-4
     construct_phrase(bass_c48, treb1, vel_bass, vel_treb, dur_8th, 0.001);
     construct_phrase(bass_g43, treb1, vel_bass, vel_treb, dur_8th, 0.05);
@@ -157,4 +157,4 @@ fun void play( Clarinet @ cl, float note, float velocity, dur T ) {
         spork ~ play(cb, bass_c48[i], 0.2, dur_8th[i]*Q); play(ct, treb_c72[i], 0.2, dur_8th[i]*Q);
         init_gain - 0.1 => init_gain; init_gain => cb.gain; init_gain => ct.gain;
     } Q*12 => now;      
-//}
+}
