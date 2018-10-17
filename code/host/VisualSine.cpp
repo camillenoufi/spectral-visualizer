@@ -99,8 +99,8 @@ GLfloat g_window[SND_BUFFER_SIZE]; // DFT transform window
 // for waterfall
 struct Pt2D { float y;};
 Pt2D ** g_spectrums = NULL;
-GLuint g_depth = 24; //
-GLfloat g_wf_prc = 0.8;
+GLuint g_depth = 127; //
+GLfloat g_wf_prc = 0.95;
 int g_len_hist = (int)round(g_depth*g_wf_prc);
 // for lightning bolt
 GLfloat g_bolt_y = -1.0;
@@ -404,6 +404,51 @@ GLfloat getIntersect(GLfloat y, GLfloat x1,GLfloat y1,GLfloat x2,GLfloat y2){
 }
 
 //-----------------------------------------------------------------------------
+// Name: drawStars( )
+// Desc: draw time domain tiny stars
+//-----------------------------------------------------------------------------
+void drawStars() {
+
+    GLfloat xL = -9.0;
+    GLfloat xR = 9.0;
+    GLfloat x = -1.0;
+    GLfloat inc = 1/g_bufferSize;
+    GLfloat y_init = 5.0;
+    GLfloat y_off = -0.25;
+    GLfloat y = -1.0;
+    GLfloat fade_rate = 0.1;
+    GLfloat color = -1.0;
+    GLint nWaves = 10;
+    for(int j=0; j<nWaves; j++) {
+        inc = ::fabs( (xR-xL) / g_bufferSize);      // increment
+        x = xL;
+        y = y_init + (float)j*y_off;
+        color = 1.0 - (float)j*fade_rate;
+        glLineWidth(0.5);  // time domain line width
+        glColor3f( color, color, color ); // color
+        // start primitive
+        glBegin( GL_TRIANGLES );
+            // loop over buffer
+            for(int i = 0; i < g_bufferSize; i++ )
+            {
+                if (::fabs(g_buffer[i])>=0.4) {
+                    glColor3f(1.0,0.84,0.0); //light goldenrod yellow
+                    glBegin( GL_TRIANGLES );
+                }
+                //glBegin( GL_LINE_STRIP );
+                glVertex3f( x, y+g_buffer[i], -1.0);
+                // end primitive
+                //glEnd();
+                x += inc;
+            }
+            // end primitive
+        glEnd();
+    }
+}
+
+
+
+//-----------------------------------------------------------------------------
 // Name: drawSnowCap( )
 // Desc: draw time domain wave form and attach to mountain peak
 //-----------------------------------------------------------------------------
@@ -434,11 +479,16 @@ void drawSnowCap(GLfloat y_snow_min, GLfloat x1,GLfloat y1,GLfloat x2,GLfloat y2
             {
                 if (::fabs(g_buffer[i])>=0.4) {
                     //std::cout << g_buffer[i] << '\n';
-                    glColor3f(1.0,1.0,i/g_bufferSize); //yellow
-                    glLineWidth( 2*lw+((float) rand() / RAND_MAX));
+                    if(i%2 == 1) {
+                        glColor3f(1.0,0.8,0.0); //gold
+                    } else {
+                        glColor3f(1.0,1.0,0.8); //light goldenrod yellow
+                    }
+
+                    glLineWidth( 4*lw);
                     //do i need to do this again??
                     glRotatef(bolt_rot,0,1,0); bolt_rot += 1;
-                    glBegin( GL_LINE_STRIP );
+                    glBegin( GL_TRIANGLE_STRIP );
                     y_bolt = -0.7*::fabs(g_buffer[i]+y_snow);
                     g_bolt_y = y_bolt;
                     glVertex3f( -3.5, y_bolt,0.4);
@@ -491,6 +541,7 @@ void drawMoon(float radius)
 {
     //time domain moon rays
     glLineWidth(0.5);
+    glColor3f( 1.0, 1.0, 1.0 );
     glBegin(GL_LINE_LOOP);
     for (int i=0; i<360; i++)
     {
@@ -499,17 +550,25 @@ void drawMoon(float radius)
     }
     glEnd();
     //static moon
-//    glPushMatrix();
-        glLineWidth(1.0);
-//        glColor3f(211.0/CMAX,211.0/CMAX,211.0/CMAX);
-        glBegin(GL_LINE_LOOP);
-        for (int i=0; i<360; i++)
-        {
-          float degInRad = i*MY_PIE/180;
-          glVertex3f(cos(degInRad)*radius+4.4,sin(degInRad)*radius+3.3,0.2);
-        }
-        glEnd();
-//    glPopMatrix();
+    glLineWidth(1.0);
+    glColor3f( 1.0, 1.0, 1.0 );
+    glBegin(GL_LINE_LOOP);
+    for (int i=0; i<360; i++)
+    {
+      float degInRad = i*MY_PIE/180;
+      glVertex3f(cos(degInRad)*radius+4.4,sin(degInRad)*radius+3.3,0.2);
+    }
+    glEnd();
+    //static moon
+    glLineWidth(1.0);
+    glColor3f( 0.0, 0.0, 0.0 );
+    glBegin(GL_TRIANGLE_FAN);
+    for (int i=0; i<360; i++)
+    {
+      float degInRad = i*MY_PIE/180;
+      glVertex3f(cos(degInRad)*radius+4.4,sin(degInRad)*radius+3.3,0.2);
+    }
+    glEnd();
 }
 
 //-----------------------------------------------------------------------------
@@ -614,6 +673,7 @@ void displayFunc( )
             drawMountain(9.0, mx4,mb-0.2,mh,3.5,0.3);
             drawMountain(15.0, mx5,mb-0.5,mh,3.0,-0.5);
             drawMountain(30.0, mx6,mb-1.1,mh,2.0,-0.2);
+            drawStars();
             drawMoon(0.4);
             drawWaterfall();
         glPopMatrix();
