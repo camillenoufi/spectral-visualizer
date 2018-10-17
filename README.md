@@ -1,4 +1,4 @@
-"Nature at Night" Audio Visualizer
+"Nightfall Awakening" Audio Visualizer
 - Visualizes the time and frequency contents of any sound within a theme of lake and mountains at night.
 
 to run:
