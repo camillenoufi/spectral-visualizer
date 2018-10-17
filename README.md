@@ -1,5 +1,5 @@
 "Nature at Night" Audio Visualizer
-- Visualizes the time and frequency contents of any sound
+- Visualizes the time and frequency contents of any sound within a theme of lake and mountains at night.
 
 to run:
 
